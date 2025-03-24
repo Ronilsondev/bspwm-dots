@@ -1,10 +1,3 @@
-#!/bin/sh
-
-#
-# Copyright (C) Mahmoud Mohamed (Ozil)  <https://github.com/mmsaeed509>
-# Everyone is permitted to copy and distribute copies of this file under GNU-GPL3
-#
-
 echo ""
 echo "Installing Xorg Packages.... "
 
@@ -15,40 +8,17 @@ echo "Installing GPU/Touchpad/Mouse Drivers ...."
 
 sudo pacman -S --noconfirm --needed xf86-video-fbdev xf86-video-vesa xf86-video-intel xf86-video-ati xorg-xinput xf86-input-libinput numlockx
 
-echo "Which GPU in Your PC/Laptop?"
-echo "1- NVIDIA"
-echo "2- AMD"
-echo "Any Key To SKIP"
-read choice
-
-if [[ "$choice" -eq 1 ]]; then
-  
-  echo ""
-  echo "Installing NVIDIA Drivers.... "
-  sudo pacman -S --noconfirm --needed xf86-video-nouveau nvidia nvidia-utils nvidia-settings
-
-elif [[ "$choice" -eq 2 ]]; then
-  
-  echo ""
-  echo "Installing AMD Drivers.... "
-  sudo pacman -S --noconfirm --needed xf86-video-amdgpu
-
-else
-
-  break 
-   
-fi
-  
 echo ""
 echo "Installing WM Packages.... "
 
-sudo pacman -S --noconfirm --needed bspwm wmname sxhkd xclip i3-wm
+sudo pacman -S --noconfirm --needed bspwm wmname sxhkd xclip
 
 echo ""
 echo "Installing yay.... "
 
-git clone https://aur.archlinux.org/yay.git
-cd yay
+sudo pacman -S --noconfirm --needed git base-devel 
+git clone https://aur.archlinux.org/yay.git 
+cd yay 
 makepkg -si
 
 echo ""
