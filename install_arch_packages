@@ -1,67 +1,154 @@
-Echo ""
-echo "Installing Xorg Packages.... "
+#!/bin/bash
 
-sudo pacman -S --noconfirm --needed xorg-server xorg-xbacklight xorg-fonts-misc xorg-xfd xorg-xkill xorg-xrandr xorg-xrdb xorg-xset xorg-xev xorg-xmodmap xorg-xwininfo xorg-xsetroot
+# Script de instalação para Arch Linux/Exodia OS
+# Inclui pacotes essenciais, drivers, ambientes gráficos e utilitários
 
-echo ""
-echo "Installing GPU/Touchpad/Mouse Drivers ...."
+set -euo pipefail
 
-sudo pacman -S --noconfirm --needed xf86-video-fbdev xf86-video-vesa xf86-video-intel xf86-video-ati xorg-xinput xf86-input-libinput numlockx
+# Configurações
+REPO_URL="https://github.com/Exodia-OS"
+TEMP_DIR=$(mktemp -d)
+LOG_FILE="/var/log/exodia_install.log"
 
-echo ""
-echo "Installing WM Packages.... "
+# Funções
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+}
 
-sudo pacman -S --noconfirm --needed bspwm wmname sxhkd xclip
+install_packages() {
+    log "Instalando $1..."
+    shift
+    sudo pacman -S --noconfirm --needed "$@" | tee -a "$LOG_FILE"
+}
 
-echo ""
-echo "Installing yay.... "
+install_aur() {
+    log "Instalando pacote AUR: $1"
+    yay -S --noconfirm --needed "$1" | tee -a "$LOG_FILE"
+}
 
-sudo pacman -S --noconfirm --needed git base-devel 
-git clone https://aur.archlinux.org/yay.git 
-cd yay 
-makepkg -si
+install_resources() {
+    local repo=$1
+    local target=$2
+    
+    log "Instalando $repo..."
+    if git clone "${REPO_URL}/${repo}.git" "$TEMP_DIR/$repo"; then
+        cd "$TEMP_DIR/$repo/files" 2>/dev/null || cd "$TEMP_DIR/$repo" 2>/dev/null
+        sudo cp -vr * "$target" | tee -a "$LOG_FILE"
+        cd -
+    else
+        log "Falha ao clonar $repo"
+        return 1
+    fi
+}
 
-echo ""
-echo "Installing Networking/wireless Programs.... "
+cleanup() {
+    log "Limpando arquivos temporários..."
+    rm -rf "$TEMP_DIR"
+}
 
-sudo pacman -S --noconfirm --needed inetutils networkmanager networkmanager-openvpn nethogs nm-connection-editor bluez bluez-utils blueman pulseaudio-bluetooth 
+install_yay() {
+    if ! command -v yay &> /dev/null; then
+        log "Instalando yay..."
+        install_packages "Dependências do yay" git base-devel
+        git clone https://aur.archlinux.org/yay.git "$TEMP_DIR/yay"
+        cd "$TEMP_DIR/yay"
+        makepkg -si --noconfirm | tee -a "$LOG_FILE"
+        cd -
+    fi
+}
 
-echo ""
-echo "Installing multimedia Programs.... "
+copy_configs() {
+    log "Copiando arquivos de configuração..."
+    
+    # Verifica se os diretórios existem
+    [ -d "misc" ] && cp -vr misc/* ~/ | tee -a "$LOG_FILE"
+    [ -d "bin" ] && sudo cp -vr bin/* /usr/local/bin/ | tee -a "$LOG_FILE"
+    [ -d "config" ] && cp -vr config/* ~/.config/ | tee -a "$LOG_FILE"
+}
 
-sudo pacman -S --noconfirm --needed alsa-plugins alsa-tools alsa-utils pavucontrol pulseaudio pulseaudio-alsa pulseaudio-equalizer-ladspa viewnior gwenview ffmpeg ffmpegthumbnailer mpc mpd mplayer ncmpcpp tumbler feh
+# Fluxo principal de instalação
+main() {
+    log "Iniciando instalação do Exodia OS"
+    
+    # Atualizar sistema primeiro
+    log "Atualizando o sistema..."
+    sudo pacman -Syu --noconfirm | tee -a "$LOG_FILE"
+    
+    # Instalar grupos de pacotes
+    install_packages "Xorg" \
+        xorg-server xorg-xbacklight xorg-fonts-misc xorg-xfd xorg-xkill \
+        xorg-xrandr xorg-xrdb xorg-xset xorg-xev xorg-xmodmap xorg-xwininfo \
+        xorg-xsetroot
+    
+    install_packages "Drivers" \
+        xf86-video-fbdev xf86-video-vesa xf86-video-intel xf86-video-ati \
+        xorg-xinput xf86-input-libinput numlockx
+    
+    install_packages "Window Manager" \
+        bspwm wmname sxhkd xclip
+    
+    install_packages "Rede" \
+        inetutils networkmanager networkmanager-openvpn nethogs \
+        nm-connection-editor bluez bluez-utils blueman pulseaudio-bluetooth
+    
+    install_packages "Multimídia" \
+        alsa-plugins alsa-tools alsa-utils pavucontrol pulseaudio \
+        pulseaudio-alsa pulseaudio-equalizer-ladspa viewnior gwenview \
+        ffmpeg ffmpegthumbnailer mpc mpd mplayer ncmpcpp tumbler feh
+    
+    install_packages "Arquivos/Editores" \
+        ranger highlight trash-cli ueberzug thunar thunar-archive-plugin \
+        thunar-media-tags-plugin thunar-volman zip p7zip unzip unrar \
+        xarchiver xdg-user-dirs xdg-user-dirs-gtk alacritty xfce4-terminal \
+        atril geany geany-plugins vim neovim noto-fonts noto-fonts-emoji \
+        terminus-font ttf-dejavu
+    
+    install_packages "Sistema" \
+        acpi autoconf automake binutils bison calc fakeroot gcc gparted \
+        gtk-engine-murrine gvfs gvfs-mtp gvfs-afc gvfs-gphoto2 gvfs-smb \
+        gvfs-google inotify-tools jq make patch pkg-config polkit powertop \
+        sshfs udisks2 wmctrl xclip xdotool xmlstarlet yad sndio
+    
+    install_packages "Utilitários" \
+        baobab dialog dunst gpick htop lxappearance meld ncdu nitrogen plank \
+        python-pywal rofi maim slop xfce4-power-manager xfce4-settings \
+        xsettingsd kvantum qt5ct virtualbox-guest-utils qemu-guest-agent \
+        open-vm-tools xf86-input-vmmouse xf86-video-vmware
+    
+    # Instalar yay e pacotes AUR
+    install_yay
+    
+    log "Instalando pacotes AUR..."
+    install_aur betterlockscreen
+    install_aur downgrade
+    install_aur i3lock-color
+    install_aur ksuperkey
+    install_aur light
+    install_aur networkmanager-dmenu-git
+    install_aur python2
+    install_aur obmenu-generator
+    install_aur perl-linux-desktopfiles
+    install_aur polybar
+    install_aur timeshift
+    install_aur xfce-polkit
+    install_aur cava
+    install_aur picom-ibhagwan-git
+    
+    # Instalar recursos de temas
+    install_resources exodia-backgrounds /usr/share/backgrounds
+    install_resources exodia-icons /usr/share/icons
+    install_resources exodia-themes /usr/share/themes
+    
+    # Copiar configurações
+    copy_configs
+    
+    # Finalização
+    cleanup
+    log "Instalação concluída com sucesso!"
+    echo "############################"
+    echo "#       C O N C L U Í D O       #"
+    echo "############################"
+}
 
-
-echo ""
-echo "Installing Files/Terminals/Docs/Editors/Fonts Programs.... "
-
-sudo pacman -S --noconfirm --needed ranger highlight trash-cli ueberzug thunar thunar-archive-plugin thunar-media-tags-plugin thunar-volman zip p7zip unzip unrar xarchiver xdg-user-dirs xdg-user-dirs-gtk alacritty xfce4-terminal atril geany geany-plugins vim neovim noto-fonts noto-fonts-emoji terminus-font ttf-dejavu
-
-
-echo ""
-echo "Installing System Programs.... "
-
-sudo pacman -S --noconfirm --needed  acpi autoconf automake binutils bison calc fakeroot gcc gparted gtk-engine-murrine gvfs gvfs-mtp gvfs-afc gvfs-gphoto2 gvfs-smb gvfs-google inotify-tools jq make patch pkg-config polkit powertop sshfs udisks2 wmctrl xclip xdotool xmlstarlet yad sndio
-
-
-echo ""
-echo "Installing Utilities/XFCE tools/Hypervisors .... "
-
-sudo pacman -S --noconfirm --needed baobab dialog dunst gpick htop lxappearance meld ncdu nitrogen plank python-pywal rofi maim slop xfce4-power-manager xfce4-settings xsettingsd kvantum qt5ct virtualbox-guest-utils qemu-guest-agent open-vm-tools xf86-input-vmmouse xf86-video-vmware
-
-echo ""
-echo "Installing AUR Packages.... "
-
-yay -S --noconfirm --needed betterlockscreen downgrade i3lock-color ksuperkey light networkmanager-dmenu-git python2 obmenu-generator perl-linux-desktopfiles polybar timeshift xfce-polkit cava
-
-echo ""
-echo "Installing Picom "
-
-git clone https://github.com/ibhagwan/picom-ibhagwan-git.git
-cd picom
-makepkg -si
-
-echo "#################"
-echo "#    D O N E    #"
-echo "#################"
-
+# Executar script principal
+main "$@"
