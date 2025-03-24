@@ -15,6 +15,67 @@ log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
 }
 
+setup_audio() {
+    log "Configurando subsistema de áudio..."
+    
+    # Verifica se pipewire já está instalado
+    if pacman -Qi pipewire pipewire-pulse &>/dev/null; then
+        log "PipeWire já instalado - pulando instalação do PulseAudio"
+        return 0
+    fi
+    
+    # Instala apenas um sistema de áudio
+    local audio_system=""
+    PS3='Escolha o sistema de áudio: '
+    options=("PipeWire (recomendado)" "PulseAudio (tradicional)" "Cancelar")
+    select opt in "${options[@]}"
+    do
+        case $opt in
+            "PipeWire (recomendado)")
+                audio_system="pipewire"
+                break
+                ;;
+            "PulseAudio (tradicional)")
+                audio_system="pulseaudio"
+                break
+                ;;
+            "Cancelar")
+                log "Instalação cancelada pelo usuário"
+                exit 1
+                ;;
+            *) echo "Opção inválida $REPLY";;
+        esac
+    done
+
+    case $audio_system in
+        "pipewire")
+            log "Instalando PipeWire..."
+            install_packages "PipeWire" \
+                pipewire pipewire-pulse pipewire-alsa pipewire-jack \
+                wireplumber pavucontrol
+            ;;
+        "pulseaudio")
+            log "Instalando PulseAudio..."
+            install_packages "PulseAudio" \
+                pulseaudio pulseaudio-alsa pulseaudio-bluetooth \
+                pulseaudio-equalizer-ladspa pavucontrol
+            ;;
+    esac
+}
+
+# Função modificada para instalação de pacotes multimídia
+install_multimedia() {
+    log "Instalando pacotes multimídia..."
+    
+    # Pacotes comuns (sem áudio)
+    install_packages "Multimídia (comum)" \
+        viewnior gwenview ffmpeg ffmpegthumbnailer mpc mpd mplayer \
+        ncmpcpp tumbler feh
+    
+    # Configura áudio separadamente
+    setup_audio
+}
+
 install_packages() {
     log "Instalando $1..."
     shift
@@ -69,7 +130,9 @@ copy_configs() {
 # Fluxo principal de instalação
 main() {
     log "Iniciando instalação do Exodia OS"
-    
+
+    install_multimedia
+
     # Atualizar sistema primeiro
     log "Atualizando o sistema..."
     sudo pacman -Syu --noconfirm | tee -a "$LOG_FILE"
