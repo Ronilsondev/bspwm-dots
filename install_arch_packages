@@ -1,4 +1,4 @@
-echo ""
+Echo ""
 echo "Installing Xorg Packages.... "
 
 sudo pacman -S --noconfirm --needed xorg-server xorg-xbacklight xorg-fonts-misc xorg-xfd xorg-xkill xorg-xrandr xorg-xrdb xorg-xset xorg-xev xorg-xmodmap xorg-xwininfo xorg-xsetroot
